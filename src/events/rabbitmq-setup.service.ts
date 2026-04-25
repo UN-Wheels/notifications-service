@@ -19,7 +19,7 @@ export class RabbitMQSetupService implements OnModuleInit {
     const queue    = this.configService.get<string>('rabbitmq.queue')!;
     const dlq      = this.configService.get<string>('rabbitmq.dlqExchange')!;
 
-    let connection: amqp.Connection | null = null;
+    let connection: amqp.ChannelModel | null = null;
 
     try {
       connection = await amqp.connect(url);
@@ -34,10 +34,6 @@ export class RabbitMQSetupService implements OnModuleInit {
       // Queue de notificaciones con DLQ configurada
       await channel.assertQueue(queue, {
         durable: true,
-        arguments: {
-          'x-dead-letter-exchange': dlq,
-          'x-message-ttl': 1000 * 60 * 60 * 24, // 24h max en queue
-        },
       });
 
       // Bindings: filtra sólo los eventos que nos interesan

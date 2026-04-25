@@ -8,6 +8,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
@@ -24,18 +25,31 @@ export class NotificationsController {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   private extractEmail(req: Request): string {
+    const gatewayUserId = req.headers?.['x-user-id'];
+    if (typeof gatewayUserId === 'string' && gatewayUserId.trim().length > 0) {
+      return gatewayUserId;
+    }
+
+    if (Array.isArray(gatewayUserId) && gatewayUserId.length > 0 && gatewayUserId[0]) {
+      return gatewayUserId[0];
+    }
+
     const cookieName = 'access_token';
     const token =
       req.cookies?.[cookieName] ||
       req.headers?.authorization?.replace(/^Bearer\s+/i, '');
 
-    if (!token) throw new Error('No autenticado');
+    if (!token) throw new UnauthorizedException('No autenticado');
 
     const secret = this.configService.get<string>('jwt.accessSecret');
-    const decoded = jwt.verify(token, secret!) as any;
-    const email = decoded.sub ?? decoded.user_id;
-    if (!email) throw new Error('Token sin identificador');
-    return email;
+    try {
+      const decoded = jwt.verify(token, secret!) as any;
+      const email = decoded.sub ?? decoded.user_id;
+      if (!email) throw new UnauthorizedException('Token sin identificador');
+      return email;
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
   }
 
   // ── Endpoints ─────────────────────────────────────────────────────────────
