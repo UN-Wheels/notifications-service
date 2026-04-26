@@ -39,6 +39,7 @@ export class RabbitMQSetupService implements OnModuleInit {
       // Bindings: filtra sólo los eventos que nos interesan
       await channel.bindQueue(queue, exchange, 'reservation.#');
       await channel.bindQueue(queue, exchange, 'route.#');
+      await channel.bindQueue(queue, exchange, 'chat.#');
 
       await channel.close();
       this.logger.log(`RabbitMQ listo: exchange="${exchange}", queue="${queue}"`);

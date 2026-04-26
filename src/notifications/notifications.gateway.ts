@@ -83,7 +83,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
    */
   async sendToUser(recipientEmail: string, notification: NotificationDocument): Promise<void> {
     this.server.to(recipientEmail).emit('notification', {
-      id:        notification._id,
+      _id:       notification._id,
       type:      notification.type,
       title:     notification.title,
       body:      notification.body,

@@ -8,6 +8,7 @@ export enum NotificationType {
   RESERVATION_ACCEPTED  = 'RESERVATION_ACCEPTED',
   RESERVATION_REJECTED  = 'RESERVATION_REJECTED',
   ROUTE_DELETED         = 'ROUTE_DELETED',
+  CHAT_MESSAGE          = 'CHAT_MESSAGE',
 }
 
 @Schema({ timestamps: true })
