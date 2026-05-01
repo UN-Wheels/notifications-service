@@ -36,8 +36,19 @@ async function bootstrap() {
       urls: [process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672'],
       queue: 'notifications_queue',
       queueOptions: { durable: true },
-      noAck: false,
-      prefetchCount: 10,
+      // noAck:true = auto-ack a nivel de protocolo AMQP. RabbitMQ marca el
+      // mensaje como entregado en cuanto sale al consumer; no hace falta
+      // llamar channel.ack() manualmente. Aceptable para notificaciones:
+      // si el handler crashea, perdemos esa notificacion (no es critica).
+      // Esto evita el bloqueo previo donde el wrapper de amqp-connection-manager
+      // no propagaba el ack y la cola se quedaba con messages_unacknowledged=10.
+      noAck: true,
+      // Heartbeat AMQP cada 30s impide que la conexion TCP quede idle y la corte el bridge de Docker.
+      // reconnectTimeInSeconds activa el auto-recovery interno (amqp-connection-manager) de NestJS.
+      socketOptions: {
+        heartbeatIntervalInSeconds: 30,
+        reconnectTimeInSeconds: 5,
+      },
     },
   });
 

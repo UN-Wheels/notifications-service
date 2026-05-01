@@ -21,30 +21,36 @@ export class RouteHandler {
   ) {}
 
   // ── route.deleted → notificar a TODOS los pasajeros afectados ─────────────
+  // noAck:true en main.ts → RabbitMQ ackea automaticamente al entregar.
 
   @EventPattern('route.deleted')
   async handleRouteDeleted(@Payload() data: RouteDeletedEvent) {
-    this.logger.log(
-      `route.deleted → ${data.affectedPassengers.length} pasajeros afectados`,
-    );
+    try {
+      this.logger.log(
+        `route.deleted → ${data.affectedPassengers.length} pasajeros afectados`,
+      );
 
-    // Notificar a cada pasajero con reserva confirmada
-    await Promise.all(
-      data.affectedPassengers.map(async (passengerEmail) => {
-        const notification = await this.notificationsService.create({
-          recipientEmail: passengerEmail,
-          type:  NotificationType.ROUTE_DELETED,
-          title: 'Ruta cancelada',
-          body:  `La ruta de ${data.origin} a ${data.destination} fue cancelada por el conductor`,
-          data: {
-            routeId:     data.routeId,
-            origin:      data.origin,
-            destination: data.destination,
-          },
-        });
+      await Promise.all(
+        data.affectedPassengers.map(async (passengerEmail) => {
+          const notification = await this.notificationsService.create({
+            recipientEmail: passengerEmail,
+            type:  NotificationType.ROUTE_DELETED,
+            title: 'Ruta cancelada',
+            body:  `La ruta de ${data.origin} a ${data.destination} fue cancelada por el conductor`,
+            data: {
+              routeId:     data.routeId,
+              origin:      data.origin,
+              destination: data.destination,
+            },
+          });
 
-        await this.notificationsGateway.sendToUser(passengerEmail, notification);
-      }),
-    );
+          await this.notificationsGateway.sendToUser(passengerEmail, notification);
+        }),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Error procesando route.deleted: ${(err as Error).message}`,
+      );
+    }
   }
 }

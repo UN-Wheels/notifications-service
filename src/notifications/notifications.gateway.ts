@@ -20,6 +20,10 @@ import { NotificationDocument } from './schemas/notification.schema';
     origin: (origin: string, cb: Function) => cb(null, true),
     credentials: true,
   },
+  // pingInterval/pingTimeout fuerzan keep-alive del WS en proxies y bridges Docker
+  // que de lo contrario cerrarian el socket por inactividad tras unos minutos.
+  pingInterval: 25000,
+  pingTimeout: 20000,
 })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
@@ -34,10 +38,15 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   async handleConnection(client: Socket) {
     this.logger.log(`Cliente conectado: ${client.id}`);
+
+    // Nest no expone el "reason" en OnGatewayDisconnect, así que lo capturamos aquí.
+    client.on('disconnect', (reason) => {
+      this.logger.log(`Cliente desconectado: ${client.id} (${reason})`);
+    });
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`Cliente desconectado: ${client.id}`);
+    // (sin log) el reason se registra en el listener de handleConnection
   }
 
   // ── Eventos del cliente ────────────────────────────────────────────────────

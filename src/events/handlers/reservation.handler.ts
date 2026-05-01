@@ -23,75 +23,95 @@ export class ReservationHandler {
     private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
+  // noAck:true en main.ts → RabbitMQ ackea automaticamente al entregar.
+
   // ── reservation.requested → notificar al CONDUCTOR ────────────────────────
 
   @EventPattern('reservation.requested')
   async handleRequested(@Payload() data: ReservationEvent) {
-    this.logger.log(`reservation.requested → driver: ${data.driverEmail}`);
+    try {
+      this.logger.log(`reservation.requested → driver: ${data.driverEmail}`);
 
-    const notification = await this.notificationsService.create({
-      recipientEmail: data.driverEmail,
-      type:  NotificationType.RESERVATION_REQUESTED,
-      title: 'Nueva solicitud de reserva',
-      body:  `Un pasajero quiere viajar de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)}`,
-      data: {
-        reservationId: data.reservationId,
-        routeId:       data.routeId,
-        passengerEmail: data.passengerEmail,
-        origin:        data.origin,
-        destination:   data.destination,
-        travelDate:    data.travelDate,
-      },
-    });
+      const notification = await this.notificationsService.create({
+        recipientEmail: data.driverEmail,
+        type:  NotificationType.RESERVATION_REQUESTED,
+        title: 'Nueva solicitud de reserva',
+        body:  `Un pasajero quiere viajar de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)}`,
+        data: {
+          reservationId: data.reservationId,
+          routeId:       data.routeId,
+          passengerEmail: data.passengerEmail,
+          origin:        data.origin,
+          destination:   data.destination,
+          travelDate:    data.travelDate,
+        },
+      });
 
-    await this.notificationsGateway.sendToUser(data.driverEmail, notification);
+      await this.notificationsGateway.sendToUser(data.driverEmail, notification);
+    } catch (err) {
+      this.logger.error(
+        `Error procesando reservation.requested: ${(err as Error).message}`,
+      );
+    }
   }
 
   // ── reservation.accepted → notificar al PASAJERO ──────────────────────────
 
   @EventPattern('reservation.accepted')
   async handleAccepted(@Payload() data: ReservationEvent) {
-    this.logger.log(`reservation.accepted → passenger: ${data.passengerEmail}`);
+    try {
+      this.logger.log(`reservation.accepted → passenger: ${data.passengerEmail}`);
 
-    const notification = await this.notificationsService.create({
-      recipientEmail: data.passengerEmail,
-      type:  NotificationType.RESERVATION_ACCEPTED,
-      title: '¡Reserva confirmada!',
-      body:  `Tu viaje de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)} fue aceptado`,
-      data: {
-        reservationId: data.reservationId,
-        routeId:       data.routeId,
-        driverEmail:   data.driverEmail,
-        origin:        data.origin,
-        destination:   data.destination,
-        travelDate:    data.travelDate,
-      },
-    });
+      const notification = await this.notificationsService.create({
+        recipientEmail: data.passengerEmail,
+        type:  NotificationType.RESERVATION_ACCEPTED,
+        title: '¡Reserva confirmada!',
+        body:  `Tu viaje de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)} fue aceptado`,
+        data: {
+          reservationId: data.reservationId,
+          routeId:       data.routeId,
+          driverEmail:   data.driverEmail,
+          origin:        data.origin,
+          destination:   data.destination,
+          travelDate:    data.travelDate,
+        },
+      });
 
-    await this.notificationsGateway.sendToUser(data.passengerEmail, notification);
+      await this.notificationsGateway.sendToUser(data.passengerEmail, notification);
+    } catch (err) {
+      this.logger.error(
+        `Error procesando reservation.accepted: ${(err as Error).message}`,
+      );
+    }
   }
 
   // ── reservation.rejected → notificar al PASAJERO ──────────────────────────
 
   @EventPattern('reservation.rejected')
   async handleRejected(@Payload() data: ReservationEvent) {
-    this.logger.log(`reservation.rejected → passenger: ${data.passengerEmail}`);
+    try {
+      this.logger.log(`reservation.rejected → passenger: ${data.passengerEmail}`);
 
-    const notification = await this.notificationsService.create({
-      recipientEmail: data.passengerEmail,
-      type:  NotificationType.RESERVATION_REJECTED,
-      title: 'Reserva no aceptada',
-      body:  `Tu solicitud de viaje de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)} no fue aceptada`,
-      data: {
-        reservationId: data.reservationId,
-        routeId:       data.routeId,
-        origin:        data.origin,
-        destination:   data.destination,
-        travelDate:    data.travelDate,
-      },
-    });
+      const notification = await this.notificationsService.create({
+        recipientEmail: data.passengerEmail,
+        type:  NotificationType.RESERVATION_REJECTED,
+        title: 'Reserva no aceptada',
+        body:  `Tu solicitud de viaje de ${data.origin} a ${data.destination} el ${this.formatDate(data.travelDate)} no fue aceptada`,
+        data: {
+          reservationId: data.reservationId,
+          routeId:       data.routeId,
+          origin:        data.origin,
+          destination:   data.destination,
+          travelDate:    data.travelDate,
+        },
+      });
 
-    await this.notificationsGateway.sendToUser(data.passengerEmail, notification);
+      await this.notificationsGateway.sendToUser(data.passengerEmail, notification);
+    } catch (err) {
+      this.logger.error(
+        `Error procesando reservation.rejected: ${(err as Error).message}`,
+      );
+    }
   }
 
   private formatDate(iso: string): string {

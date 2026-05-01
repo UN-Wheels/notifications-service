@@ -19,35 +19,40 @@ export class RabbitMQSetupService implements OnModuleInit {
     const queue    = this.configService.get<string>('rabbitmq.queue')!;
     const dlq      = this.configService.get<string>('rabbitmq.dlqExchange')!;
 
-    let connection: amqp.ChannelModel | null = null;
+    const MAX_ATTEMPTS = 10;
+    const RETRY_DELAY_MS = 3000;
 
-    try {
-      connection = await amqp.connect(url);
-      const channel = await connection.createChannel();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let connection: amqp.ChannelModel | null = null;
+      try {
+        connection = await amqp.connect(url, { heartbeat: 30 });
+        const channel = await connection.createChannel();
 
-      // Dead-letter exchange (recibe mensajes que fallaron 3 veces)
-      await channel.assertExchange(dlq, 'fanout', { durable: true });
+        await channel.assertExchange(dlq, 'fanout', { durable: true });
+        await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.assertQueue(queue, { durable: true });
 
-      // Topic exchange principal — todos los servicios publican aquí
-      await channel.assertExchange(exchange, 'topic', { durable: true });
+        await channel.bindQueue(queue, exchange, 'reservation.#');
+        await channel.bindQueue(queue, exchange, 'route.#');
+        await channel.bindQueue(queue, exchange, 'chat.#');
 
-      // Queue de notificaciones con DLQ configurada
-      await channel.assertQueue(queue, {
-        durable: true,
-      });
-
-      // Bindings: filtra sólo los eventos que nos interesan
-      await channel.bindQueue(queue, exchange, 'reservation.#');
-      await channel.bindQueue(queue, exchange, 'route.#');
-      await channel.bindQueue(queue, exchange, 'chat.#');
-
-      await channel.close();
-      this.logger.log(`RabbitMQ listo: exchange="${exchange}", queue="${queue}"`);
-    } catch (err) {
-      this.logger.error('Error configurando RabbitMQ', (err as Error).message);
-      throw err;
-    } finally {
-      if (connection) await connection.close();
+        await channel.close();
+        await connection.close();
+        this.logger.log(`RabbitMQ listo: exchange="${exchange}", queue="${queue}"`);
+        return;
+      } catch (err) {
+        if (connection) {
+          try { await connection.close(); } catch { /* noop */ }
+        }
+        this.logger.warn(
+          `Setup RabbitMQ intento ${attempt}/${MAX_ATTEMPTS} fallo: ${(err as Error).message}`,
+        );
+        if (attempt === MAX_ATTEMPTS) {
+          this.logger.error('No se pudo configurar RabbitMQ tras los reintentos');
+          throw err;
+        }
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
     }
   }
 }
